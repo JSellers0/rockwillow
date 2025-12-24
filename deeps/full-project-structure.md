@@ -4,6 +4,7 @@
 /home/jsellers0/                                      # User home directory
 ├── data -> /mnt/rockwillow/data                     # Symlink to external drive data
 ├── projects -> /mnt/rockwillow/projects             # Symlink to external drive projects
+├── .local/share/containers -> /mnt/rockwillow/containers  # Podman storage
 └── rockwillow.code-workspace                        # VS Code workspace file
 
 /mnt/rockwillow/                                     # External drive mount point
@@ -15,63 +16,66 @@
 │   │   └── appdb/                                  # Application database
 │   ├── logs/                                       # Application logs
 │   │   ├── nginx/                                  # Nginx access/error logs
-│   │   ├── gin-api/                                # Gin API logs
-│   │   └── flask-app/                              # Flask app logs
-│   ├── backups/                                    # Database backups
-│   │   ├── full-20240101.sql                       # Full database dumps
-│   │   └── schema-20240101.sql                     # Schema-only backups
-│   └── containers/                                 # Podman container storage
-│       └── storage/                                # Podman-managed
-│           ├── libpod/                             # Podman database
-│           ├── overlay-images/                     # Container images
-│           ├── overlay-containers/                 # Container metadata
-│           └── overlay/                            # Container layers
+│   │   ├── rw_budget_api/                          # Gin API logs
+│   │   └── rw_budget/                              # Flask app logs
+│   └── backups/                                    # Database backups
+│       ├── full-20240101.sql                       # Full database dumps
+│       └── schema-20240101.sql                     # Schema-only backups
 │
-└── projects/                                       # Git repositories (code)
-    ├── rw_deploy/                                  # Container deployment config
-    │   ├── docker-compose.yml                      # Main orchestration file
-    │   ├── .env.example                            # Environment template
-    │   ├── .env                                    # Local env (in .gitignore)
-    │   ├── nginx/
-    │   │   ├── conf.d/
-    │   │   │   └── app.conf                        # Nginx configuration
-    │   │   ├── ssl/                                # SSL certificates
-    │   │   └── html/                               # Static files
-    │   ├── db/
-    │   │   ├── init.sql                            # Database schema
-    │   │   └── seeds/                              # Sample/test data (optional)
-    │   ├── scripts/
-    │   │   ├── deploy.sh                           # Deployment script
-    │   │   ├── backup-db.sh                        # Backup script
-    │   │   └── update-service.sh                   # Service updater
-    │   ├── configs/
-    │   │   └── systemd/
-    │   │       └── podman-stack.service            # Auto-start service
-    │   ├── LICENSE                                 # MIT License
-    │   └── README.md                               # Documentation
-    │
-    ├── rw_budget_api/                              # Go Gin REST API
-    │   ├── cmd/
-    │   │   └── main.go                             # Application entry point
-    │   ├── internal/
-    │   │   ├── handlers/                           # HTTP handlers
-    │   │   ├── models/                             # Data models
-    │   │   └── database/                           # DB connection logic
-    │   ├── go.mod                                  # Go module definition
-    │   ├── go.sum                                  # Dependency checksums
-    │   ├── Dockerfile                              # Container build file
-    │   └── .env.example                            # Environment template
-    │
-    └── rw_budget/                                  # Python Flask application
-        ├── app/
-        │   ├── __init__.py                         # Flask app factory
-        │   ├── routes.py                           # Route definitions
-        │   ├── models.py                           # SQLAlchemy models
-        │   └── templates/                          # HTML templates (if any)
-        ├── requirements.txt                        # Python dependencies
-        ├── Dockerfile                              # Container build file
-        ├── app.py                                  # Application entry point
-        └── .env.example                            # Environment template
+├── projects/                                       # Git repositories (code)
+│   ├── rw_deploy/                                  # Container deployment config
+│   │   ├── docker-compose.yml                      # Main orchestration file
+│   │   ├── .env.example                            # Environment template
+│   │   ├── .env                                    # Local env (in .gitignore)
+│   │   ├── nginx/
+│   │   │   ├── conf.d/
+│   │   │   │   └── app.conf                        # Nginx configuration
+│   │   │   ├── ssl/                                # SSL certificates
+│   │   │   └── html/                               # Static files
+│   │   ├── db/
+│   │   │   ├── init.sql                            # Database schema
+│   │   │   └── seeds/                              # Sample/test data (optional)
+│   │   ├── scripts/
+│   │   │   ├── deploy.sh                           # Deployment script
+│   │   │   ├── backup-db.sh                        # Backup script
+│   │   │   └── update-service.sh                   # Service updater
+│   │   ├── configs/
+│   │   │   └── systemd/
+│   │   │       └── podman-stack.service            # Auto-start service
+│   │   ├── LICENSE                                 # MIT License
+│   │   └── README.md                               # Documentation
+│   │
+│   ├── rw_budget_api/                              # Go Gin REST API
+│   │   ├── cmd/
+│   │   │   └── main.go                             # Application entry point
+│   │   ├── internal/
+│   │   │   ├── handlers/                           # HTTP handlers
+│   │   │   ├── models/                             # Data models
+│   │   │   └── database/                           # DB connection logic
+│   │   ├── go.mod                                  # Go module definition
+│   │   ├── go.sum                                  # Dependency checksums
+│   │   ├── Dockerfile                              # Container build file
+│   │   └── .env.example                            # Environment template
+│   │
+│   └── rw_budget/                                  # Python Flask application
+│       ├── app/
+│       │   ├── __init__.py                         # Flask app factory
+│       │   ├── routes.py                           # Route definitions
+│       │   ├── models.py                           # SQLAlchemy models
+│       │   └── templates/                          # HTML templates
+│       ├── requirements.txt                        # Python dependencies
+│       ├── Dockerfile                              # Container build file
+│       ├── app.py                                  # Application entry point
+│       └── .env.example                            # Environment template
+│
+└── containers/                                     # Podman container storage
+    └── storage/                                    # Created by Podman
+        ├── libpod/                                 # Podman database
+        ├── overlay-images/                         # Container images (~60% of space)
+        ├── overlay-containers/                     # Container metadata
+        ├── overlay-layers/                         # Shared image layers
+        ├── overlay/                                # Container writable layers
+        └── tmp/                                    # Temporary files
 ```
 
 # 🔗 **Symlink Relationships**
