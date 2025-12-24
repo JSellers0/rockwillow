@@ -1,0 +1,39 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+secrets/
+*.key
+*.pem
+*.crt
+
+# Database
+db/backups/*
+db/data/
+!db/backups/.gitkeep
+mariadb_data/
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Runtime
+*.pid
+*.sock
+*.lock
+tmp/
+temp/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Podman/Docker
+*.tar
+*.tar.gz
