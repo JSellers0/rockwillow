@@ -7,9 +7,19 @@ echo "==============================================="
 cd "$(dirname "$0")/.."
 
 # Check if podman-compose is available
+echo "❌ podman-compose not found. Installing via apt..."
+    
 if ! command -v podman-compose &> /dev/null; then
-    echo "❌ podman-compose not found. Installing..."
-    pip3 install podman-compose
+    echo "❌ podman-compose not found. Installing via apt..."
+    
+    # Try apt first
+    if command -v apt &> /dev/null; then
+        sudo apt update && sudo apt install -y podman-compose
+    else
+        echo "❌ Could not install podman-compose. Please install manually:"
+        echo "   sudo apt install podman-compose"
+        exit 1
+    fi
 fi
 
 # Load environment
