@@ -1,0 +1,210 @@
+version: '3.8'
+
+x-podman-defaults: &podman-defaults
+  # Podman-specific settings
+  security_opt:
+    - no-new-privileges:true
+    - label=disable
+  # Remove capabilities for security
+  cap_drop:
+    - ALL
+  # Run as non-root inside container
+  user: "1000:1000"
+  # Podman healthcheck format
+  healthcheck:
+    interval: 30s
+    timeout: 10s
+    start_period: 30s
+    retries: 3
+
+services:
+  # Reverse Proxy - Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: rockwillow-nginx
+    ports:
+      - "8080:80"                    # Rootless Podman: must use port >1024
+      - "8443:443"                   # HTTPS if SSL configured
+    volumes:
+      # Nginx configuration - use :z for SELinux/mount labeling in Podman
+      - ${HOME}/projects/rw_deploy/nginx/conf.d:/etc/nginx/conf.d:z,ro
+      - ${HOME}/projects/rw_deploy/nginx/ssl:/etc/nginx/ssl:z,ro
+      - ${HOME}/projects/rw_deploy/nginx/html:/usr/share/nginx/html:z,ro
+      # Logs to external drive - Podman needs :z for writable mounts
+      - ${HOME}/data/logs/nginx:/var/log/nginx:z
+    depends_on:
+      rw_budget_api:
+        condition: service_healthy
+      rw_budget:
+        condition: service_healthy
+    networks:
+      - rockwillow-network
+    restart: "always"  # Podman uses "always" instead of "unless-stopped"
+    <<: *podman-defaults
+    # Podman-compatible healthcheck
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Nginx needs specific capabilities
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    # Podman: run as nginx user inside container (UID 101 in alpine)
+    user: "101:101"
+
+  # Database - MariaDB
+  mariadb:
+    image: mariadb:11
+    container_name: rockwillow-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-ChangeMe123!}
+      MARIADB_DATABASE: ${DB_NAME:-rwneterror}
+      MARIADB_USER: ${DB_USER:-rwneterror_user}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-ChangeMe456!}
+      TZ: ${TZ:-America/New_York}
+      # Podman: explicitly set user for MariaDB
+      MYSQL_USER: mysql
+      MYSQL_GROUP: mysql
+    volumes:
+      # Database data on external drive - :Z for exclusive SELinux labeling
+      - ${HOME}/data/mariadb:/var/lib/mysql:Z
+      # Schema initialization
+      - ${HOME}/projects/rw_deploy/db/init.sql:/docker-entrypoint-initdb.d/init.sql:z,ro
+      # Backups directory
+      - ${HOME}/data/backups:/backups:z
+      # Database logs
+      - ${HOME}/data/logs/mariadb:/var/log/mysql:z
+    ports:
+      - "3307:3306"                   # External access on high port
+    networks:
+      - rockwillow-network
+    restart: "always"
+    <<: *podman-defaults
+    # MariaDB-specific healthcheck for Podman
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # MariaDB needs longer startup time
+    # MariaDB needs specific capabilities
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    # Podman: run as mysql user inside container
+    user: "999:999"  # mysql user in MariaDB container
+    # Podman: add tmpfs for /tmp to reduce writes
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+
+  # Go Gin REST API
+  rw_budget_api:
+    build:
+      context: ${HOME}/projects/rw_budget_api
+      dockerfile: Dockerfile
+      # Podman build args
+      args:
+        - GO_VERSION=1.21
+    container_name: rockwillow-budget-api
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-budget_user}
+      DB_PASSWORD: ${DB_PASSWORD:-ChangeMe456!}
+      DB_NAME: ${DB_NAME:-rockwillow_budget}
+      GIN_MODE: ${GIN_MODE:-release}
+      API_PORT: 8081
+      FLASK_APP_URL: http://rw_budget:5000
+      # Podman: set user explicitly
+      USER: ginuser
+      UID: "1000"
+      GID: "1000"
+    volumes:
+      # Mount source code - use :z for shared SELinux context
+      - ${HOME}/projects/rw_budget_api:/app:z,ro
+      # Application logs
+      - ${HOME}/data/logs/rw_budget_api:/app/logs:z
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - rockwillow-network
+    restart: "always"
+    <<: *podman-defaults
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # Gin API needs minimal capabilities
+    cap_add:
+      - CHOWN
+    # Expose port for healthcheck (not published to host)
+    expose:
+      - "8081"
+
+  # Python Flask Web Application
+  rw_budget:
+    build:
+      context: ${HOME}/projects/rw_budget
+      dockerfile: Dockerfile
+      # Podman build args
+      args:
+        - PYTHON_VERSION=3.11
+    container_name: rockwillow-budget-app
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-budget_user}
+      DB_PASSWORD: ${DB_PASSWORD:-ChangeMe456!}
+      DB_NAME: ${DB_NAME:-rockwillow_budget}
+      GIN_API_URL: http://rw_budget_api:8081/api
+      FLASK_ENV: ${FLASK_ENV:-production}
+      FLASK_APP: app.py
+      SECRET_KEY: ${FLASK_SECRET_KEY:-ChangeThisSecretKey!}
+      # Podman: set user explicitly
+      USER: flaskuser
+      UID: "1000"
+      GID: "1000"
+    volumes:
+      # Mount source code
+      - ${HOME}/projects/rw_budget:/app:z,ro
+      # Application logs
+      - ${HOME}/data/logs/rw_budget:/var/log/flask:z
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      rw_budget_api:
+        condition: service_healthy
+    networks:
+      - rockwillow-network
+    restart: "always"
+    <<: *podman-defaults
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # Flask needs minimal capabilities
+    cap_add:
+      - CHOWN
+    # Expose port for healthcheck (not published to host)
+    expose:
+      - "5000"
+
+networks:
+  rockwillow-network:
+    # Podman: use bridge driver (default) or macvlan for external access
+    driver: bridge
+    # Podman: enable IPv6 if needed
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
