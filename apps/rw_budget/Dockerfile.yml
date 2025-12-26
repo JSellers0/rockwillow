@@ -16,6 +16,16 @@ RUN apt-get update && apt-get install -y \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.cargo/bin/uv /usr/local/bin/uv
 
+# Create directories for volumes BEFORE copying code
+RUN mkdir -p /app/{logs,uploads,tmp,cache,static}
+
+# Set permissions for non-root user
+RUN chmod 755 /app && \
+    chmod 755 /app/logs && \
+    chmod 755 /app/uploads && \
+    chmod 755 /app/tmp && \
+    chmod 755 /app/cache
+
 # Copy dependency files first (better caching)
 COPY pyproject.toml uv.lock ./
 
@@ -37,4 +47,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
 
 # Use run.py as the entry point with gunicorn
-CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "run:app"]
+CMD ["uv", "run", "gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", \
+     "--access-logfile", "/app/logs/access.log", \
+     "--error-logfile", "/app/logs/error.log", \
+     "--capture-output", \
+     "--log-level", "info", \
+     "run:app"]

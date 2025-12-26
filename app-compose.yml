@@ -17,12 +17,21 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       FLASK_ENV: production
+      LOG_LEVEL: INFO
+      LOG_DIR: /app/logs
+      UPLOAD_DIR: /app/uploads
+      CACHE_DIR: /app/cache
+      TMP_DIR: /app/tmp
       FLASK_DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@rw-mariadb:3306/${DB_NAME}
-      SECRET_KEY: ${FLASK_SECRET_KEY}
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
       # Add app-specific environment variables
     volumes:
-      # Optional: For development with live reload
-      # - ${HOME}/projects/rw_budget:/app:Z,U
+      - ${HOME}/data/apps/rw_budget/logs:/app/logs:Z,U
+      - ${HOME}/data/apps/rw_budget/uploads:/app/uploads:Z,U
+      - ${HOME}/data/apps/rw_budget/tmp:/app/tmp:Z,U
+      - ${HOME}/data/apps/rw_budget/cache:/app/cache:Z,U
+      # 6. Optional: Mount .env file (READ ONLY)
+      - ${HOME}/projects/rw_deploy/.env:/app/.env:ro
     depends_on:
       rw-mariadb:
         condition: service_healthy
