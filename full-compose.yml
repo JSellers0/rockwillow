@@ -1,0 +1,92 @@
+version: '3.8'
+
+networks:
+  rockwillow_network:
+    name: rockwillow_network
+
+services:
+  # ==================== DATABASE ====================
+  rw-mariadb:
+    image: mariadb:10.11
+    container_name: rw-mariadb
+    restart: unless-stopped
+    networks:
+      - rockwillow_network
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-rockwillow}
+      MYSQL_USER: ${DB_USER:-rockwillow}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - ${HOME}/data/mariadb/data:/var/lib/mysql:Z,U
+      - ${HOME}/data/mariadb/logs:/var/log/mysql:Z,U
+      - ${HOME}/data/backups:/backups:Z,U
+      - ${HOME}/projects/rw_deploy/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==================== FLASK APP ====================
+  rw-app-budget:
+    build:
+      context: ${HOME}/projects/rw_budget
+      dockerfile: Dockerfile.yml  # Changed from Dockerfile.yml
+    container_name: rw-app-budget
+    restart: unless-stopped
+    networks:
+      - rockwillow_network
+    environment:
+      PYTHONUNBUFFERED: 1
+      FLASK_ENV: production
+      LOG_LEVEL: INFO
+      LOG_DIR: /app/logs
+      UPLOAD_DIR: /app/uploads
+      CACHE_DIR: /app/cache
+      TMP_DIR: /app/tmp
+      # Use same environment variable names as mariadb service
+      DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@rw-mariadb:3306/${DB_NAME}
+      SECRET_KEY: ${FLASK_SECRET_KEY}
+    volumes:
+      - ${HOME}/data/logs/apps/rw_budget:/app/logs:Z,U
+      - ${HOME}/data/apps/rw_budget/uploads:/app/uploads:Z,U
+      - ${HOME}/data/apps/rw_budget/tmp:/app/tmp:Z,U
+      - ${HOME}/data/apps/rw_budget/cache:/app/cache:Z,U
+      # Optional: For development, mount source code
+      # - ${HOME}/projects/rw_budget:/app:Z,U
+    depends_on:
+      rw-mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==================== NGINX ====================
+  rw-nginx:
+    image: nginx:alpine
+    container_name: rw-nginx
+    restart: unless-stopped
+    networks:
+      - rockwillow_network
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ${HOME}/projects/rw_deploy/nginx/conf.d:/etc/nginx/conf.d:Z,U
+      - ${HOME}/projects/rw_deploy/nginx/ssl:/etc/nginx/ssl:ro
+      - ${HOME}/data/nginx/html:/usr/share/nginx/html:Z,U
+      - ${HOME}/data/nginx/logs:/var/log/nginx:Z,U
+      - ${HOME}/data/nginx/tmp:/var/cache/nginx:Z,U
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
