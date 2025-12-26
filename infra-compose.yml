@@ -6,9 +6,9 @@ networks:
     driver: bridge
 
 services:
-  mariadb:
+  rw-mariadb:
     image: mariadb:10.11
-    container_name: rockwillow-mariadb
+    container_name: rw-mariadb
     restart: on-failure
     networks:
       - rockwillow_network
@@ -31,9 +31,9 @@ services:
       timeout: 10s
       retries: 3
 
-  nginx:
+  rw-nginx:
     image: docker.io/library/nginx:alpine
-    container_name: rockwillow-nginx
+    container_name: rw-nginx
     restart: on-failure
     networks:
       - rockwillow_network

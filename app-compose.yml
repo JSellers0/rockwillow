@@ -1,0 +1,34 @@
+version: '3.8'
+
+networks:
+  rockwillow_network:
+    name: rockwillow_network
+    external: true
+
+services:
+  rw-app-budget:
+    build:
+      context: ${HOME}/projects/rw_budget
+      dockerfile: ${HOME}/projects/rw_deploy/apps/rw_budget/Dockerfile
+    container_name: rw-app-budget
+    restart: unless-stopped
+    networks:
+      - rockwillow_network
+    environment:
+      PYTHONUNBUFFERED: 1
+      FLASK_ENV: production
+      FLASK_DATABASE_URL: mysql://${DB_USER}:${DB_PASSWORD}@rw-mariadb:3306/${DB_NAME}
+      SECRET_KEY: ${FLASK_SECRET_KEY}
+      # Add app-specific environment variables
+    volumes:
+      # Optional: For development with live reload
+      # - ${HOME}/projects/rw_budget:/app:Z,U
+    depends_on:
+      rw-mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
