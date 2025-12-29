@@ -80,6 +80,7 @@ services:
       - "8443:443"
     volumes:
       - ${HOME}/projects/rw_deploy/nginx/conf.d:/etc/nginx/conf.d:Z,U
+      - ${HOME}/projects/rw_deploy/nginx/locations-enabled:/etc/nginx/locations-enabled:Z,U
       - ${HOME}/projects/rw_deploy/nginx/ssl:/etc/nginx/ssl:ro
       - ${HOME}/data/nginx/html:/usr/share/nginx/html:Z,U
       - ${HOME}/data/nginx/logs:/var/log/nginx:Z,U

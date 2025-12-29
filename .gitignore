@@ -37,3 +37,5 @@ Thumbs.db
 # Podman/Docker
 *.tar
 *.tar.gz
+
+nginx/locations-enabled/*.conf
