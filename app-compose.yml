@@ -9,7 +9,7 @@ services:
   rw-app-budget:
     build:
       context: ${HOME}/projects/rw_budget
-      dockerfile: Dockerfile.yml
+      dockerfile: Dockerfile
     container_name: rw-app-budget
     restart: unless-stopped
     networks:
